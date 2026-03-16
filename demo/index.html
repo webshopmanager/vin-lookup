@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WSM VIN Lookup — Live Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #e0e0e0; }
+
+  /* Demo nav */
+  .demo-nav { display: flex; gap: 8px; padding: 16px 32px; background: #111; border-bottom: 1px solid #222; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; align-items: center; }
+  .demo-nav h1 { font-size: 14px; color: #888; margin-right: 16px; font-weight: 400; }
+  .demo-nav button { padding: 8px 16px; border: 1px solid #333; background: #1a1a1a; color: #aaa; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .demo-nav button:hover { background: #222; color: #fff; }
+  .demo-nav button.active { background: #b60000; color: #fff; border-color: #b60000; }
+  .demo-note { padding: 12px 32px; background: #111; border-bottom: 1px solid #222; font-size: 12px; color: #666; }
+  .demo-note code { background: #1a1a1a; padding: 2px 6px; border-radius: 3px; color: #7ec; }
+  .demo-note strong { color: #aaa; }
+
+  /* Simulated site */
+  .site { margin: 24px 32px; border-radius: 12px; overflow: hidden; border: 1px solid #333; background: #111; }
+  .site-header { background: #1a1a1a; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #333; }
+  .site-logo { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+  .site-links { display: flex; gap: 20px; }
+  .site-links span { font-size: 13px; color: #888; }
+
+  /* Hero */
+  .site-hero { position: relative; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 340px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 24px; }
+  .site-hero h2 { font-size: 28px; color: #fff; margin-bottom: 6px; text-align: center; }
+  .site-hero .sub { color: rgba(255,255,255,0.5); font-size: 14px; margin-bottom: 24px; text-align: center; }
+
+  /* Fake PartsLogic YMM selector */
+  #pl-fitment-selector-wrapper { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .pl-select { background: #2a2a3e; border: 1px solid #444; color: #aaa; padding: 12px 16px; border-radius: 6px; font-size: 14px; min-width: 140px; }
+  .pl-btn { background: #b60000; color: #fff; border: none; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+  /* Search results page layout */
+  .search-layout { display: none; }
+  .search-layout.active { display: flex; min-height: 500px; }
+  .search-sidebar { width: 280px; background: #151520; border-right: 1px solid #333; padding: 0; flex-shrink: 0; }
+  .sidebar-section { padding: 16px 20px; border-bottom: 1px solid #2a2a2a; }
+  .sidebar-section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 12px; }
+  .facet label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #aaa; padding: 4px 0; }
+  .facet .box { width: 14px; height: 14px; border: 1px solid #444; border-radius: 3px; background: #2a2a3e; display: inline-block; }
+  .search-main { flex: 1; padding: 24px; }
+  .search-main p { color: #888; font-size: 14px; margin-bottom: 16px; }
+  .product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .product-card { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; text-align: center; }
+  .product-img { width: 100%; height: 100px; background: #2a2a3e; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #444; font-size: 11px; }
+  .product-name { font-size: 13px; color: #ccc; margin-bottom: 4px; }
+  .product-price { font-size: 15px; font-weight: 700; }
+
+  .hero-layout { display: block; }
+  .hero-layout.hidden { display: none; }
+
+  /* Test VINs panel */
+  .test-panel { margin: 0 32px 24px; padding: 16px 24px; background: #111; border: 1px solid #333; border-radius: 8px; }
+  .test-panel h3 { font-size: 13px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .test-panel .vins { display: flex; gap: 8px; flex-wrap: wrap; }
+  .test-panel .vin-chip { background: #1a1a1a; border: 1px solid #333; padding: 6px 12px; border-radius: 6px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: #7ec; cursor: pointer; transition: all 0.2s; }
+  .test-panel .vin-chip:hover { background: #222; border-color: #555; }
+  .test-panel .vin-label { font-size: 10px; color: #666; display: block; margin-top: 2px; font-family: inherit; }
+</style>
+</head>
+<body>
+
+<nav class="demo-nav">
+  <h1>WSM VIN Lookup Demo</h1>
+  <button class="active" onclick="switchLayout('tabbed')">Tabbed</button>
+  <button onclick="switchLayout('button')">Button</button>
+  <button onclick="switchLayout('bar')">Bar</button>
+  <button onclick="switchLayout('sidebar')">Sidebar</button>
+</nav>
+<div class="demo-note">
+  <strong>VIN decode is live</strong> — uses the real NHTSA API. Plate lookup requires the PHP proxy (won't work from static file).
+  Try the test VINs below. Layout: <code id="current-layout">tabbed</code>
+</div>
+
+<div class="test-panel">
+  <h3>Test VINs (click to copy)</h3>
+  <div class="vins">
+    <div class="vin-chip" onclick="copyVin(this)">1FMEE5DPXMLA66891<span class="vin-label">2021 Ford Bronco</span></div>
+    <div class="vin-chip" onclick="copyVin(this)">1HGCM82633A004352<span class="vin-label">2003 Honda Accord</span></div>
+    <div class="vin-chip" onclick="copyVin(this)">1G1ZT53826F109149<span class="vin-label">2006 Chevy Malibu</span></div>
+    <div class="vin-chip" onclick="copyVin(this)">WBA3A5C51DF359218<span class="vin-label">2013 BMW 3 Series</span></div>
+    <div class="vin-chip" onclick="copyVin(this)">5TDJZRFH6HS381043<span class="vin-label">2017 Toyota Highlander</span></div>
+    <div class="vin-chip" onclick="copyVin(this)">1C4RJFBG5LC100001<span class="vin-label">2020 Jeep Grand Cherokee</span></div>
+  </div>
+</div>
+
+<!-- Hero layouts (tabbed, button, bar) -->
+<div class="site hero-layout" id="hero-site">
+  <div class="site-header">
+    <div class="site-logo">VANGUARD OFFROAD</div>
+    <div class="site-links"><span>Bull Bars</span><span>Bumpers</span><span>Grille Guards</span><span>Running Boards</span></div>
+  </div>
+  <div class="site-hero" id="hero-section">
+    <h2>Find Parts For Your Vehicle</h2>
+    <div class="sub">Select from OVER 12,000 parts for your vehicle</div>
+    <div id="pl-fitment-selector-wrapper">
+      <select class="pl-select"><option>Year</option></select>
+      <select class="pl-select"><option>Make</option></select>
+      <select class="pl-select"><option>Model</option></select>
+      <button class="pl-btn">Search</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sidebar layout (search results page) -->
+<div class="site search-layout" id="search-site">
+  <div style="width: 100%;">
+    <div class="site-header">
+      <div class="site-logo">VANGUARD OFFROAD</div>
+      <div class="site-links"><span>Bull Bars</span><span>Bumpers</span><span>Grille Guards</span><span>Running Boards</span></div>
+    </div>
+    <div style="display: flex;">
+      <div class="search-sidebar" id="search-sidebar">
+        <!-- VIN lookup will be injected here -->
+        <div class="sidebar-section">
+          <h4>Category</h4>
+          <div class="facet"><label><span class="box"></span> Bull Bars (42)</label></div>
+          <div class="facet"><label><span class="box"></span> Running Boards (38)</label></div>
+          <div class="facet"><label><span class="box"></span> Grille Guards (27)</label></div>
+          <div class="facet"><label><span class="box"></span> Bumpers (15)</label></div>
+        </div>
+        <div class="sidebar-section">
+          <h4>Brand</h4>
+          <div class="facet"><label><span class="box"></span> Vanguard (89)</label></div>
+          <div class="facet"><label><span class="box"></span> Westin (34)</label></div>
+          <div class="facet"><label><span class="box"></span> Go Rhino (22)</label></div>
+        </div>
+        <div class="sidebar-section">
+          <h4>Price</h4>
+          <div class="facet"><label><span class="box"></span> Under $200 (31)</label></div>
+          <div class="facet"><label><span class="box"></span> $200 - $400 (48)</label></div>
+          <div class="facet"><label><span class="box"></span> $400+ (43)</label></div>
+        </div>
+      </div>
+      <div class="search-main">
+        <p>Showing 122 results</p>
+        <div class="product-grid">
+          <div class="product-card"><div class="product-img">Product Image</div><div class="product-name">Front Bull Bar - Black</div><div class="product-price">$349.99</div></div>
+          <div class="product-card"><div class="product-img">Product Image</div><div class="product-name">Side Steps - Textured</div><div class="product-price">$449.99</div></div>
+          <div class="product-card"><div class="product-img">Product Image</div><div class="product-name">Rear Bumper Guard</div><div class="product-price">$289.99</div></div>
+          <div class="product-card"><div class="product-img">Product Image</div><div class="product-name">LED Light Bar Mount</div><div class="product-price">$179.99</div></div>
+          <div class="product-card"><div class="product-img">Product Image</div><div class="product-name">Grille Guard - Chrome</div><div class="product-price">$399.99</div></div>
+          <div class="product-card"><div class="product-img">Product Image</div><div class="product-name">Rock Sliders</div><div class="product-price">$529.99</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Load the widget -->
+<script src="../dist/wsm-vin-lookup.js"></script>
+<script>
+var currentLayout = null;
+
+// Save original hero HTML so we can reset
+var heroWrapper = document.getElementById('pl-fitment-selector-wrapper');
+var originalHeroHTML = heroWrapper.innerHTML;
+var heroSection = document.getElementById('hero-section');
+var originalHeroSectionHTML = heroSection.innerHTML;
+
+function switchLayout(layout) {
+  // Update nav buttons
+  document.querySelectorAll('.demo-nav button').forEach(function(b) {
+    b.classList.toggle('active', b.textContent.toLowerCase() === layout);
+  });
+  document.getElementById('current-layout').textContent = layout;
+
+  // Reset
+  var heroSite = document.getElementById('hero-site');
+  var searchSite = document.getElementById('search-site');
+
+  if (layout === 'sidebar') {
+    heroSite.classList.add('hidden');
+    searchSite.classList.add('active');
+    // Remove any previous wvl-root from sidebar
+    var old = document.querySelector('#search-sidebar .wvl-root');
+    if (old) old.remove();
+    // Remove old styles
+    var oldStyle = document.getElementById('wsm-vin-lookup-styles');
+    if (oldStyle) oldStyle.remove();
+    WSMVinLookup.init({
+      layout: 'sidebar',
+      container: '#search-sidebar',
+      shopUrl: '#shop',
+      accentColor: '#b60000',
+      plateProxyUrl: '/api/wsm-plate-lookup',
+      demoMode: true,
+    });
+  } else {
+    heroSite.classList.remove('hidden');
+    searchSite.classList.remove('active');
+    // Reset hero section to original state
+    heroSection.innerHTML = originalHeroSectionHTML;
+    // Re-grab the wrapper
+    heroWrapper = document.getElementById('pl-fitment-selector-wrapper');
+    // Remove old styles
+    var oldStyle = document.getElementById('wsm-vin-lookup-styles');
+    if (oldStyle) oldStyle.remove();
+    // Remove any leftover wvl elements outside container
+    document.querySelectorAll('#hero-section > .wvl-root').forEach(function(el) { el.remove(); });
+    WSMVinLookup.init({
+      layout: layout,
+      container: '#pl-fitment-selector-wrapper',
+      shopUrl: '#shop',
+      accentColor: '#b60000',
+      plateProxyUrl: '/api/wsm-plate-lookup',
+      demoMode: true,
+    });
+  }
+
+  currentLayout = layout;
+}
+
+function copyVin(el) {
+  var vin = el.textContent.split('\n')[0].trim();
+  navigator.clipboard.writeText(vin).then(function() {
+    var orig = el.style.borderColor;
+    el.style.borderColor = '#22c55e';
+    setTimeout(function() { el.style.borderColor = orig; }, 600);
+  });
+}
+
+// Initial render
+switchLayout('tabbed');
+</script>
+
+</body>
+</html>
